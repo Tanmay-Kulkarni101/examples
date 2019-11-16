@@ -29,6 +29,7 @@ import android.media.ImageReader.OnImageAvailableListener;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
 import java.util.LinkedList;
@@ -42,6 +43,7 @@ import org.tensorflow.lite.examples.detection.tflite.Classifier;
 import org.tensorflow.lite.examples.detection.tflite.TFLiteObjectDetectionAPIModel;
 import org.tensorflow.lite.examples.detection.tracking.MultiBoxTracker;
 
+import java.util.Arrays;
 /**
  * An activity that uses a TensorFlowMultiBoxDetector and ObjectTracker to detect and then track
  * objects.
@@ -74,7 +76,13 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private boolean computingDetection = false;
 
   private long timestamp = 0;
-
+  private RectF[] detections = new RectF[]{null, null, null};
+  private float[] yvals = new float[3];
+  private int count = 0;
+  private TextView textView = null;
+  private final long  TIME_BETWEEN_JUGGLES = 300;
+  private final double JUGGLE_THRESHOLD = 9;
+  private long startJuggle = 0;
   private Matrix frameToCropTransform;
   private Matrix cropToFrameTransform;
 
@@ -202,12 +210,40 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
               final RectF location = result.getLocation();
               if (location != null && result.getConfidence() >= minimumConfidence) {
                 canvas.drawRect(location, paint);
-
                 cropToFrameTransform.mapRect(location);
 
                 result.setLocation(location);
                 mappedRecognitions.add(result);
 
+//                LOGGER.d("Detection value:The current detection is at " + location.centerX(), location.centerY());
+//                for(RectF detection : detections){
+//                  if(detection != null){
+//                    LOGGER.d("The previous object was at " + detection.centerX(), detection.centerY());
+//                    result.setLocation(detection);
+//                    mappedRecognitions.add(result);
+//                  }
+//                }
+//                detections[2] = detections[1];
+//                detections[1] = detections[0];
+//                detections[0] = location;
+                yvals[2] = yvals[1];
+                yvals[1] = yvals[0];
+                yvals[0] = location.centerY();
+
+
+                LOGGER.d("yvals" + Arrays.toString(yvals));
+
+                if(yvals[1] < yvals[0] && yvals[1] < yvals[2] &&
+                        SystemClock.uptimeMillis() - startJuggle > TIME_BETWEEN_JUGGLES &&
+                yvals[0] - yvals[1] > JUGGLE_THRESHOLD){
+                  LOGGER.d("Its a minima at " + location.centerX() + "," + location.centerY());
+                  LOGGER.d("Number of juggles" + count);
+                  if(textView != null) {
+                    count++;
+//                    textView.setText(count);
+                  }
+                  startJuggle = SystemClock.uptimeMillis();
+                }
                 break;
               }
             }
